@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>SmartLedger AI - Register</title>
+</head>
+
+<body>
+
+    <h1>SmartLedger AI</h1>
+
+    <h2>Create Account</h2>
+
+    <form id="registerForm">
+
+        <input
+            type="text"
+            id="name"
+            placeholder="Name"
+            required
+        >
+
+        <br><br>
+
+        <input
+            type="email"
+            id="email"
+            placeholder="Email"
+            required
+        >
+
+        <br><br>
+
+        <input
+            type="number"
+            id="age"
+            placeholder="Age"
+            min="18"
+            required
+        >
+
+        <br><br>
+
+        <input
+            type="password"
+            id="password"
+            placeholder="Password"
+            required
+        >
+
+        <br><br>
+
+        <input
+            type="password"
+            id="confirmPassword"
+            placeholder="Confirm Password"
+            required
+        >
+
+        <br><br>
+
+        <button type="submit">
+            Register
+        </button>
+
+    </form>
+
+    <p id="message"></p>
+
+    <p>
+        Already have an account?
+        <a href="login.html">
+            Login
+        </a>
+    </p>
+
+    <script>
+
+        document.getElementById("registerForm")
+            .addEventListener(
+                "submit",
+                function(event)
+                {
+                    event.preventDefault();
+
+                    const data =
+                    {
+                        name:
+                            document.getElementById(
+                                "name"
+                            ).value,
+
+                        email:
+                            document.getElementById(
+                                "email"
+                            ).value,
+
+                        age:
+                            Number(
+                                document.getElementById(
+                                    "age"
+                                ).value
+                            ),
+
+                        password:
+                            document.getElementById(
+                                "password"
+                            ).value,
+
+                        confirmPassword:
+                            document.getElementById(
+                                "confirmPassword"
+                            ).value
+                    };
+
+                    fetch(
+                        "http://localhost:8080/auth/register",
+                        {
+                            method: "POST",
+
+                            headers:
+                            {
+                                "Content-Type":
+                                    "application/json"
+                            },
+
+                            body:
+                                JSON.stringify(data)
+                        }
+                    )
+                    .then(async response =>
+                    {
+                        const message =
+                            await response.text();
+
+                        if (!response.ok)
+                        {
+                            throw new Error(
+                                message
+                            );
+                        }
+
+                        return message;
+                    })
+                    .then(message =>
+                    {
+                        document.getElementById(
+                            "message"
+                        ).textContent =
+                            message;
+
+                        setTimeout(
+                            function()
+                            {
+                                window.location.href =
+                                    "login.html";
+                            },
+                            1000
+                        );
+                    })
+                    .catch(error =>
+                    {
+                        document.getElementById(
+                            "message"
+                        ).textContent =
+                            error.message;
+                    });
+                }
+            );
+
+    </script>
+
+</body>
+
+</html>
