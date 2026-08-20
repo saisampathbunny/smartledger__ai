@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>SmartLedger AI</title>
+
+</head>
+
+<body>
+
+    <h1>SmartLedger AI</h1>
+
+    <button onclick="logout()">
+        Logout
+    </button>
+
+    <hr>
+
+    <h2>Add Transaction</h2>
+
+    <form id="transactionForm">
+
+        <input
+            type="text"
+            id="senderAccount"
+            placeholder="Sender Account"
+            required
+        >
+
+        <br><br>
+
+        <input
+            type="text"
+            id="receiverAccount"
+            placeholder="Receiver Account"
+            required
+        >
+
+        <br><br>
+
+        <input
+            type="number"
+            id="amount"
+            placeholder="Amount"
+            min="0"
+            required
+        >
+
+        <br><br>
+
+        <input
+            type="text"
+            id="transactionType"
+            placeholder="Transaction Type"
+            required
+        >
+
+        <br><br>
+
+        <button type="submit">
+            Check Transaction
+        </button>
+
+    </form>
+
+    <p id="message"></p>
+
+    <hr>
+
+    <h2>My Transactions</h2>
+
+    <table border="1">
+
+        <thead>
+
+            <tr>
+
+                <th>ID</th>
+                <th>Sender</th>
+                <th>Receiver</th>
+                <th>Amount</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Explanation</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody id="transactionTable">
+
+        </tbody>
+
+    </table>
+
+    <script>
+
+        const token =
+            localStorage.getItem("token");
+
+        if (!token)
+        {
+            window.location.href =
+                "login.html";
+        }
+
+        function getHeaders()
+        {
+            return {
+                "Content-Type":
+                    "application/json",
+
+                "Authorization":
+                    "Bearer " + token
+            };
+        }
+
+        document.getElementById(
+            "transactionForm"
+        ).addEventListener(
+            "submit",
+            function(event)
+            {
+                event.preventDefault();
+
+                const transaction =
+                {
+                    senderAccount:
+                        document.getElementById(
+                            "senderAccount"
+                        ).value,
+
+                    receiverAccount:
+                        document.getElementById(
+                            "receiverAccount"
+                        ).value,
+
+                    amount:
+                        Number(
+                            document.getElementById(
+                                "amount"
+                            ).value
+                        ),
+
+                    transactionType:
+                        document.getElementById(
+                            "transactionType"
+                        ).value,
+
+                    timestamp:
+                        new Date().toISOString()
+                };
+
+                fetch(
+                    "http://localhost:8080/transactions/add",
+                    {
+                        method: "POST",
+
+                        headers:
+                            getHeaders(),
+
+                        body:
+                            JSON.stringify(
+                                transaction
+                            )
+                    }
+                )
+                .then(async response =>
+                {
+                    const data =
+                        await response.text();
+
+                    if (response.status === 401)
+                    {
+                        logout();
+                        return;
+                    }
+
+                    if (!response.ok)
+                    {
+                        throw new Error(data);
+                    }
+
+                    return data;
+                })
+                .then(() =>
+                {
+                    document.getElementById(
+                        "message"
+                    ).textContent =
+                        "Transaction added.";
+
+                    document.getElementById(
+                        "transactionForm"
+                    ).reset();
+
+                    loadTransactions();
+                })
+                .catch(error =>
+                {
+                    document.getElementById(
+                        "message"
+                    ).textContent =
+                        error.message;
+                });
+            }
+        );
+
+        function loadTransactions()
+        {
+            fetch(
+                "http://localhost:8080/transactions/all",
+                {
+                    headers:
+                        getHeaders()
+                }
+            )
+            .then(response =>
+            {
+                if (response.status === 401)
+                {
+                    logout();
+                    return [];
+                }
+
+                return response.json();
+            })
+            .then(transactions =>
+            {
+                const table =
+                    document.getElementById(
+                        "transactionTable"
+                    );
+
+                table.innerHTML = "";
+
+                transactions.forEach(
+                    function(transaction)
+                    {
+                        const row =
+                            document.createElement(
+                                "tr"
+                            );
+
+                        row.innerHTML =
+                            "<td>"
+                            + transaction.id
+                            + "</td>"
+
+                            + "<td>"
+                            + transaction.senderAccount
+                            + "</td>"
+
+                            + "<td>"
+                            + transaction.receiverAccount
+                            + "</td>"
+
+                            + "<td>"
+                            + transaction.amount
+                            + "</td>"
+
+                            + "<td>"
+                            + transaction.transactionType
+                            + "</td>"
+
+                            + "<td>"
+                            + transaction.fraudStatus
+                            + "</td>"
+
+                            + "<td>"
+                            + transaction.explanation
+                            + "</td>";
+
+                        table.appendChild(row);
+                    }
+                );
+            });
+        }
+
+        function logout()
+        {
+            localStorage.removeItem("token");
+
+            window.location.href =
+                "login.html";
+        }
+
+        loadTransactions();
+
+    </script>
+
+</body>
+
+</html>
