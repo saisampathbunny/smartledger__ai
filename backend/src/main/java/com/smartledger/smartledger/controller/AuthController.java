@@ -6,12 +6,13 @@ import com.smartledger.smartledger.dto.RegisterRequest;
 import com.smartledger.smartledger.model.User;
 import com.smartledger.smartledger.repository.UserRepository;
 import com.smartledger.smartledger.security.JwtService;
+import com.smartledger.smartledger.service.CustomUserDetailsService;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -23,36 +24,47 @@ public class AuthController
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final CustomUserDetailsService userDetailsService;
 
     public AuthController(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             AuthenticationManager authenticationManager,
-            JwtService jwtService)
+            JwtService jwtService,
+            CustomUserDetailsService userDetailsService)
     {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
+        this.userDetailsService = userDetailsService;
     }
 
     @PostMapping("/register")
     public ResponseEntity<?> register(
             @RequestBody RegisterRequest request)
     {
-        if (request.getName() == null || request.getName().isBlank())
+        if (request.getName() == null ||
+                request.getName().isBlank())
         {
             return ResponseEntity.badRequest()
                     .body("Name is required.");
         }
 
-        if (request.getEmail() == null || request.getEmail().isBlank())
+        if (request.getEmail() == null ||
+                request.getEmail().isBlank())
         {
             return ResponseEntity.badRequest()
                     .body("Email is required.");
         }
 
-        if (request.getAge() == null || request.getAge() < 18)
+        String email =
+                request.getEmail()
+                        .trim()
+                        .toLowerCase();
+
+        if (request.getAge() == null ||
+                request.getAge() < 18)
         {
             return ResponseEntity.badRequest()
                     .body("You must be at least 18 years old.");
@@ -62,7 +74,9 @@ public class AuthController
                 !isStrongPassword(request.getPassword()))
         {
             return ResponseEntity.badRequest()
-                    .body("Password must contain at least 8 characters, one uppercase letter, one lowercase letter, one number and one special character.");
+                    .body(
+                            "Password must contain at least 8 characters, one uppercase letter, one lowercase letter, one number and one special character."
+                    );
         }
 
         if (!request.getPassword()
@@ -72,7 +86,7 @@ public class AuthController
                     .body("Passwords do not match.");
         }
 
-        if (userRepository.existsByEmail(request.getEmail()))
+        if (userRepository.existsByEmail(email))
         {
             return ResponseEntity.badRequest()
                     .body("Email is already registered.");
@@ -80,16 +94,21 @@ public class AuthController
 
         User user = new User();
 
-        user.setName(request.getName());
-        user.setEmail(request.getEmail().toLowerCase());
+        user.setName(request.getName().trim());
+        user.setEmail(email);
         user.setAge(request.getAge());
+
         user.setPassword(
-                passwordEncoder.encode(request.getPassword())
+                passwordEncoder.encode(
+                        request.getPassword()
+                )
         );
 
         userRepository.save(user);
 
-        return ResponseEntity.ok("Registration successful.");
+        return ResponseEntity.ok(
+                "Registration successful."
+        );
     }
 
     @PostMapping("/login")
@@ -98,21 +117,33 @@ public class AuthController
     {
         try
         {
+            if (request.getEmail() == null ||
+                    request.getEmail().isBlank() ||
+                    request.getPassword() == null ||
+                    request.getPassword().isBlank())
+            {
+                return ResponseEntity.status(401)
+                        .body("Invalid email or password.");
+            }
+
+            String email =
+                    request.getEmail()
+                            .trim()
+                            .toLowerCase();
+
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
-                            request.getEmail(),
+                            email,
                             request.getPassword()
                     )
             );
 
             UserDetails userDetails =
-                    org.springframework.security.core.userdetails.User
-                            .withUsername(request.getEmail())
-                            .password("")
-                            .roles("USER")
-                            .build();
+                    userDetailsService
+                            .loadUserByUsername(email);
 
-            String token = jwtService.generateToken(userDetails);
+            String token =
+                    jwtService.generateToken(userDetails);
 
             return ResponseEntity.ok(
                     new AuthResponse(token)
@@ -125,7 +156,8 @@ public class AuthController
         }
     }
 
-    private boolean isStrongPassword(String password)
+    private boolean isStrongPassword(
+            String password)
     {
         return password.length() >= 8
                 && password.matches(".*[A-Z].*")
