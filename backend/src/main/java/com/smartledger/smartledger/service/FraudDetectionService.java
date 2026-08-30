@@ -3,64 +3,96 @@ package com.smartledger.smartledger.service;
 import com.smartledger.smartledger.model.Transaction;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
+
 @Service
 public class FraudDetectionService
 {
+    private static final double LARGE_AMOUNT_THRESHOLD = 50000;
+    private static final double ROUND_NUMBER_DIVISOR = 10000;
+    private static final int SUSPICIOUS_SCORE_THRESHOLD = 50;
+
     public FraudResult evaluate(Transaction transaction)
     {
         int score = 0;
 
-        if (transaction.getAmount() > 50000)
+        if (isLargeAmount(transaction))
         {
             score += 30;
         }
 
-        if (transaction.getSenderAccount()
-                .equals(transaction.getReceiverAccount()))
+        if (isSelfTransfer(transaction))
         {
             score += 30;
         }
 
-        if (transaction.getTimestamp() != null &&
-                isOddHour(transaction.getTimestamp()))
+        if (isOddHour(transaction))
         {
             score += 20;
         }
 
-        if (transaction.getAmount() % 1000 == 0)
+        if (isRoundNumber(transaction))
         {
             score += 20;
         }
 
         String status =
-                score >= 50
+                score >= SUSPICIOUS_SCORE_THRESHOLD
                         ? "SUSPICIOUS"
                         : "SAFE";
 
-        return new FraudResult(score, status);
+        return new FraudResult(status, score);
     }
 
-    private boolean isOddHour(String timestamp)
+    private boolean isLargeAmount(Transaction transaction)
     {
+        return transaction.getAmount() != null
+                && transaction.getAmount() > LARGE_AMOUNT_THRESHOLD;
+    }
+
+    private boolean isSelfTransfer(Transaction transaction)
+    {
+        return transaction.getSenderAccount() != null
+                && transaction.getSenderAccount()
+                        .equals(transaction.getReceiverAccount());
+    }
+
+    private boolean isRoundNumber(Transaction transaction)
+    {
+        return transaction.getAmount() != null
+                && transaction.getAmount()
+                        % ROUND_NUMBER_DIVISOR == 0;
+    }
+
+    private boolean isOddHour(Transaction transaction)
+    {
+        if (transaction.getTimestamp() == null)
+        {
+            return false;
+        }
+
         try
         {
-            String hourPart =
-                    timestamp.substring(11, 13);
+            LocalDateTime dateTime =
+                    LocalDateTime.parse(
+                            transaction.getTimestamp()
+                    );
 
             int hour =
-                    Integer.parseInt(hourPart);
+                    dateTime.getHour();
 
-            return hour >= 0 && hour <= 5;
+            return hour >= 0 && hour < 5;
         }
-        catch (Exception e)
+        catch (DateTimeParseException e)
         {
             return false;
         }
     }
 
     public record FraudResult(
-            int score,
-            String status)
+            String status,
+            int score)
     {
     }
 }
