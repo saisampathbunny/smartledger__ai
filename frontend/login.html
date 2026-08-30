@@ -3,7 +3,10 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
     <title>SmartLedger AI - Login</title>
 </head>
@@ -54,67 +57,86 @@
         document.getElementById("loginForm")
             .addEventListener(
                 "submit",
-                function(event)
+                async function(event)
                 {
                     event.preventDefault();
 
                     const email =
                         document.getElementById(
                             "email"
-                        ).value;
+                        ).value
+                            .trim()
+                            .toLowerCase();
 
                     const password =
                         document.getElementById(
                             "password"
                         ).value;
 
-                    fetch(
-                        "http://localhost:8080/auth/login",
-                        {
-                            method: "POST",
+                    const message =
+                        document.getElementById(
+                            "message"
+                        );
 
-                            headers:
-                            {
-                                "Content-Type":
-                                    "application/json"
-                            },
+                    message.textContent = "";
 
-                            body: JSON.stringify(
-                            {
-                                email: email,
-                                password: password
-                            })
-                        }
-                    )
-                    .then(async response =>
+                    try
                     {
+                        const response =
+                            await fetch(
+                                "http://localhost:8080/auth/login",
+                                {
+                                    method: "POST",
+
+                                    headers:
+                                    {
+                                        "Content-Type":
+                                            "application/json"
+                                    },
+
+                                    body:
+                                        JSON.stringify(
+                                        {
+                                            email: email,
+                                            password: password
+                                        })
+                                }
+                            );
+
                         const data =
                             await response.text();
 
                         if (!response.ok)
                         {
-                            throw new Error(data);
+                            throw new Error(
+                                data ||
+                                "Invalid email or password."
+                            );
                         }
 
-                        return JSON.parse(data);
-                    })
-                    .then(data =>
-                    {
+                        const result =
+                            JSON.parse(data);
+
+                        if (!result.token)
+                        {
+                            throw new Error(
+                                "Login failed."
+                            );
+                        }
+
                         localStorage.setItem(
                             "token",
-                            data.token
+                            result.token
                         );
 
                         window.location.href =
                             "index.html";
-                    })
-                    .catch(error =>
+                    }
+                    catch (error)
                     {
-                        document.getElementById(
-                            "message"
-                        ).textContent =
+                        message.textContent =
                             error.message;
-                    });
+                    }
                 }
             );
 
