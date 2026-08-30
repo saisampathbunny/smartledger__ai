@@ -103,17 +103,15 @@
 
     <script>
 
-        const token =
-            localStorage.getItem("token");
-
-        if (!token)
+        function getToken()
         {
-            window.location.href =
-                "login.html";
+            return localStorage.getItem("token");
         }
 
         function getHeaders()
         {
+            const token = getToken();
+
             return {
                 "Content-Type":
                     "application/json",
@@ -123,13 +121,31 @@
             };
         }
 
+        function checkLogin()
+        {
+            if (!getToken())
+            {
+                window.location.href =
+                    "login.html";
+
+                return false;
+            }
+
+            return true;
+        }
+
         document.getElementById(
             "transactionForm"
         ).addEventListener(
             "submit",
-            function(event)
+            async function(event)
             {
                 event.preventDefault();
+
+                if (!checkLogin())
+                {
+                    return;
+                }
 
                 const transaction =
                 {
@@ -159,22 +175,24 @@
                         new Date().toISOString()
                 };
 
-                fetch(
-                    "http://localhost:8080/transactions/add",
-                    {
-                        method: "POST",
-
-                        headers:
-                            getHeaders(),
-
-                        body:
-                            JSON.stringify(
-                                transaction
-                            )
-                    }
-                )
-                .then(async response =>
+                try
                 {
+                    const response =
+                        await fetch(
+                            "http://localhost:8080/transactions/add",
+                            {
+                                method: "POST",
+
+                                headers:
+                                    getHeaders(),
+
+                                body:
+                                    JSON.stringify(
+                                        transaction
+                                    )
+                            }
+                        );
+
                     const data =
                         await response.text();
 
@@ -186,13 +204,12 @@
 
                     if (!response.ok)
                     {
-                        throw new Error(data);
+                        throw new Error(
+                            data ||
+                            "Unable to add transaction."
+                        );
                     }
 
-                    return data;
-                })
-                .then(() =>
-                {
                     document.getElementById(
                         "message"
                     ).textContent =
@@ -203,38 +220,51 @@
                     ).reset();
 
                     loadTransactions();
-                })
-                .catch(error =>
+                }
+                catch (error)
                 {
                     document.getElementById(
                         "message"
                     ).textContent =
                         error.message;
-                });
+                }
             }
         );
 
-        function loadTransactions()
+        async function loadTransactions()
         {
-            fetch(
-                "http://localhost:8080/transactions/all",
-                {
-                    headers:
-                        getHeaders()
-                }
-            )
-            .then(response =>
+            if (!checkLogin())
             {
+                return;
+            }
+
+            try
+            {
+                const response =
+                    await fetch(
+                        "http://localhost:8080/transactions/all",
+                        {
+                            method: "GET",
+                            headers: getHeaders()
+                        }
+                    );
+
                 if (response.status === 401)
                 {
                     logout();
-                    return [];
+                    return;
                 }
 
-                return response.json();
-            })
-            .then(transactions =>
-            {
+                if (!response.ok)
+                {
+                    throw new Error(
+                        "Unable to load transactions."
+                    );
+                }
+
+                const transactions =
+                    await response.json();
+
                 const table =
                     document.getElementById(
                         "transactionTable"
@@ -250,39 +280,65 @@
                                 "tr"
                             );
 
-                        row.innerHTML =
-                            "<td>"
-                            + transaction.id
-                            + "</td>"
+                        addCell(
+                            row,
+                            transaction.id
+                        );
 
-                            + "<td>"
-                            + transaction.senderAccount
-                            + "</td>"
+                        addCell(
+                            row,
+                            transaction.senderAccount
+                        );
 
-                            + "<td>"
-                            + transaction.receiverAccount
-                            + "</td>"
+                        addCell(
+                            row,
+                            transaction.receiverAccount
+                        );
 
-                            + "<td>"
-                            + transaction.amount
-                            + "</td>"
+                        addCell(
+                            row,
+                            transaction.amount
+                        );
 
-                            + "<td>"
-                            + transaction.transactionType
-                            + "</td>"
+                        addCell(
+                            row,
+                            transaction.transactionType
+                        );
 
-                            + "<td>"
-                            + transaction.fraudStatus
-                            + "</td>"
+                        addCell(
+                            row,
+                            transaction.fraudStatus
+                        );
 
-                            + "<td>"
-                            + transaction.explanation
-                            + "</td>";
+                        addCell(
+                            row,
+                            transaction.explanation
+                        );
 
                         table.appendChild(row);
                     }
                 );
-            });
+            }
+            catch (error)
+            {
+                document.getElementById(
+                    "message"
+                ).textContent =
+                    error.message;
+            }
+        }
+
+        function addCell(row, value)
+        {
+            const cell =
+                document.createElement("td");
+
+            cell.textContent =
+                value == null
+                    ? ""
+                    : value;
+
+            row.appendChild(cell);
         }
 
         function logout()
@@ -292,6 +348,8 @@
             window.location.href =
                 "login.html";
         }
+
+        checkLogin();
 
         loadTransactions();
 
